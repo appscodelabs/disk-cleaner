@@ -69,8 +69,8 @@ func runClean(cmd *cobra.Command, args []string) error {
 		}
 		depth++
 
-		// Only look for git repos at depth 3 (hosting/org/repo)
-		if depth == 3 {
+		// Look for git repos at depth 2 (hosting/repo) or depth 3 (hosting/org/repo)
+		if depth == 2 || depth == 3 {
 			if isGitRepo(path) {
 				found, size, err := cleanGitRepo(path)
 				if err != nil {
