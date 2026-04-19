@@ -1,6 +1,6 @@
 # disk-cleaner
 
-Recursively scans `~/go/src` for git repositories and deletes build artifact directories that are ignored by `.gitignore`. Also removes `node_modules` directories unconditionally.
+Recursively scans `~/go/src` for git repositories and deletes build artifact directories that are ignored by `.gitignore`.
 
 ## Target directories
 
@@ -9,7 +9,8 @@ Recursively scans `~/go/src` for git repositories and deletes build artifact dir
 | `dist` | Deleted if ignored by `.gitignore` |
 | `bin` | Deleted if ignored by `.gitignore` |
 | `.go` | Deleted if ignored by `.gitignore` |
-| `node_modules` | Always deleted |
+| `node_modules` | Deleted if ignored by `.gitignore` |
+| `vendor` | Deleted if ignored by `.gitignore` |
 
 ## Install
 
@@ -50,7 +51,6 @@ go build -o disk-cleaner .
 2. For each repo, recursively searches for target directories
 3. Uses `git check-ignore` to verify the directory is listed in `.gitignore`
 4. Deletes matching directories and reports total disk space freed
-5. `node_modules` is deleted without checking `.gitignore`
 
 ## Requirements
 

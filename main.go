@@ -14,6 +14,7 @@ var targetDirs = map[string]bool{
 	"bin":          true,
 	".go":          true,
 	"node_modules": true,
+	"vendor":       true,
 }
 
 var (
@@ -132,26 +133,6 @@ func cleanGitRepo(repoDir string) ([]string, int64, error) {
 		relPath, err := filepath.Rel(repoDir, path)
 		if err != nil {
 			return nil
-		}
-
-		// node_modules is always deletable regardless of .gitignore
-		if d.Name() == "node_modules" {
-			size, err := dirSize(path)
-			if err != nil {
-				size = 0
-			}
-			if dryRun {
-				fmt.Printf("[dry-run] Would delete: %s (%s)\n", path, formatBytes(size))
-			} else {
-				fmt.Printf("Deleting: %s (%s)\n", path, formatBytes(size))
-				if err := os.RemoveAll(path); err != nil {
-					fmt.Fprintf(os.Stderr, "Failed to delete %s: %v\n", path, err)
-				} else {
-					deleted = append(deleted, path)
-				}
-			}
-			totalSize += size
-			return filepath.SkipDir
 		}
 
 		ignored, err := isIgnoredByGit(repoDir, relPath)
