@@ -172,7 +172,33 @@ func cleanWorktrees(repoDir string) ([]string, int64, error) {
 		totalSize += size
 	}
 
+	if removed := removeEmptyWorktreesDir(repoDir); removed != "" {
+		deleted = append(deleted, removed)
+	}
+
 	return deleted, totalSize, nil
+}
+
+// removeEmptyWorktreesDir removes the conventional <repo>.worktrees container
+// directory once it no longer holds any worktree checkouts.
+func removeEmptyWorktreesDir(repoDir string) string {
+	container := repoDir + ".worktrees"
+	entries, err := os.ReadDir(container)
+	if err != nil || len(entries) > 0 {
+		return ""
+	}
+
+	if dryRun {
+		fmt.Printf("[dry-run] Would remove empty worktrees directory: %s\n", container)
+		return container
+	}
+
+	fmt.Printf("Removing empty worktrees directory: %s\n", container)
+	if err := os.Remove(container); err != nil {
+		fmt.Fprintf(os.Stderr, "Failed to remove %s: %v\n", container, err)
+		return ""
+	}
+	return container
 }
 
 func cleanGitRepo(repoDir string) ([]string, int64, error) {
