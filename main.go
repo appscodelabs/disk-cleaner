@@ -5,6 +5,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 
 	"github.com/spf13/cobra"
 )
@@ -15,6 +16,7 @@ var targetDirs = map[string]bool{
 	".go":          true,
 	"node_modules": true,
 	"vendor":       true,
+	".cache":       true,
 }
 
 var (
@@ -73,6 +75,16 @@ func runClean(cmd *cobra.Command, args []string) error {
 		// Look for git repos at depth 2 (hosting/repo) or depth 3 (hosting/org/repo)
 		if depth == 2 || depth == 3 {
 			if isGitRepo(path) {
+				foundWorktrees, worktreeSize, err := cleanWorktrees(path)
+				if err != nil {
+					if verbose {
+						fmt.Fprintf(os.Stderr, "Error cleaning worktrees for %s: %v\n", path, err)
+					}
+				} else {
+					deleted = append(deleted, foundWorktrees...)
+					totalSize += worktreeSize
+				}
+
 				found, size, err := cleanGitRepo(path)
 				if err != nil {
 					if verbose {
@@ -82,8 +94,15 @@ func runClean(cmd *cobra.Command, args []string) error {
 				}
 				deleted = append(deleted, found...)
 				totalSize += size
+				return filepath.SkipDir
 			}
-			return filepath.SkipDir
+
+			// Not a repo at depth 3 (hosting/org/repo) means there's nothing deeper to find.
+			// At depth 2, it may be an org directory (hosting/org/repo), so keep descending.
+			if depth == 3 {
+				return filepath.SkipDir
+			}
+			return nil
 		}
 
 		return nil
@@ -106,6 +125,54 @@ func runClean(cmd *cobra.Command, args []string) error {
 func isGitRepo(dir string) bool {
 	info, err := os.Stat(filepath.Join(dir, ".git"))
 	return err == nil && info.IsDir()
+}
+
+func cleanWorktrees(repoDir string) ([]string, int64, error) {
+	cmd := exec.Command("git", "worktree", "list", "--porcelain")
+	cmd.Dir = repoDir
+	out, err := cmd.Output()
+	if err != nil {
+		return nil, 0, err
+	}
+
+	var deleted []string
+	var totalSize int64
+
+	first := true
+	for line := range strings.SplitSeq(string(out), "\n") {
+		wtPath, ok := strings.CutPrefix(line, "worktree ")
+		if !ok {
+			continue
+		}
+		// The first entry is the main worktree (the repo itself); skip it.
+		if first {
+			first = false
+			continue
+		}
+
+		size, err := dirSize(wtPath)
+		if err != nil {
+			size = 0
+		}
+
+		if dryRun {
+			fmt.Printf("[dry-run] Would remove worktree: %s (%s)\n", wtPath, formatBytes(size))
+			totalSize += size
+			continue
+		}
+
+		fmt.Printf("Removing worktree: %s (%s)\n", wtPath, formatBytes(size))
+		removeCmd := exec.Command("git", "worktree", "remove", "--force", wtPath)
+		removeCmd.Dir = repoDir
+		if err := removeCmd.Run(); err != nil {
+			fmt.Fprintf(os.Stderr, "Failed to remove worktree %s: %v\n", wtPath, err)
+			continue
+		}
+		deleted = append(deleted, wtPath)
+		totalSize += size
+	}
+
+	return deleted, totalSize, nil
 }
 
 func cleanGitRepo(repoDir string) ([]string, int64, error) {
