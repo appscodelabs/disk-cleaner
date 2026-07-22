@@ -1,6 +1,6 @@
 # disk-cleaner
 
-Recursively scans `~/go/src` for git repositories and deletes build artifact directories that are ignored by `.gitignore`.
+Recursively scans `~/go/src` for git repositories and deletes build artifact directories that are ignored by `.gitignore`. Also removes any linked git worktrees.
 
 ## Target directories
 
@@ -11,6 +11,7 @@ Recursively scans `~/go/src` for git repositories and deletes build artifact dir
 | `.go` | Deleted if ignored by `.gitignore` |
 | `node_modules` | Deleted if ignored by `.gitignore` |
 | `vendor` | Deleted if ignored by `.gitignore` |
+| `.cache` | Deleted if ignored by `.gitignore` |
 
 ## Install
 
@@ -48,9 +49,10 @@ go build -o disk-cleaner .
 ## How it works
 
 1. Walks `~/go/src` to find git repositories (at depth `hosting/org/repo`, e.g. `github.com/user/repo`)
-2. For each repo, recursively searches for target directories
-3. Uses `git check-ignore` to verify the directory is listed in `.gitignore`
-4. Deletes matching directories and reports total disk space freed
+2. For each repo, lists linked git worktrees (`git worktree list`) and removes them with `git worktree remove --force`
+3. Recursively searches the repo for target directories
+4. Uses `git check-ignore` to verify the directory is listed in `.gitignore`
+5. Deletes matching directories and worktrees, and reports total disk space freed
 
 ## Requirements
 
